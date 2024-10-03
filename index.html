@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>날짜 투표</title>
+    <style>
+        .voting-section {
+            margin-bottom: 20px;
+        }
+        .result-section {
+            margin-top: 20px;
+        }
+        .button-yes {
+            background-color: lightgreen;
+            padding: 5px 10px;
+            border: 1px solid green;
+            cursor: pointer;
+        }
+        .button-no {
+            background-color: lightcoral;
+            padding: 5px 10px;
+            border: 1px solid red;
+            cursor: pointer;
+        }
+        .selected-yes {
+            background-color: green;
+            color: white;
+        }
+        .selected-no {
+            background-color: red;
+            color: white;
+        }
+        .reason-input {
+            display: none; /* 처음에는 숨김 */
+            margin-top: 10px;
+        }
+        .reset-button {
+            background-color: lightgrey;
+            padding: 5px 10px;
+            border: 1px solid black;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>2024년 11월 2일, 3일 투표 프로그램</h1>
+
+    <!-- 투표 섹션 -->
+    <div id="voting-container"></div>
+
+    <!-- 결과 섹션 -->
+    <div class="result-section">
+        <h2>투표 결과</h2>
+        <pre id="result"></pre>
+    </div>
+
+    <script>
+        const names = [
+            "김영규", 
+            "김원섭", 
+            "김이종", 
+            "박병훈", 
+            "신철수", 
+            "원진철", 
+            "이득환"
+        ]; // 참여자 이름을 배열로 정의
+        const participants = names.length; // 참여자 수
+        const votes = {
+            "2024-11-02": [],
+            "2024-11-03": []
+        };
+        const reasons = {
+            "2024-11-02": [],
+            "2024-11-03": []
+        };
+        const alternativeDates = {
+            "2024-11-02": [],
+            "2024-11-03": []
+        };
+
+        // 로컬 스토리지에서 투표 데이터 로드
+        function loadVotes() {
+            const savedVotes = localStorage.getItem('votes');
+            const savedReasons = localStorage.getItem('reasons');
+            const savedAlternativeDates = localStorage.getItem('alternativeDates');
+            if (savedVotes) {
+                Object.assign(votes, JSON.parse(savedVotes));
+            }
+            if (savedReasons) {
+                Object.assign(reasons, JSON.parse(savedReasons));
+            }
+            if (savedAlternativeDates) {
+                Object.assign(alternativeDates, JSON.parse(savedAlternativeDates));
+            }
+        }
+
+        // 투표 데이터 저장
+        function saveVotes() {
+            localStorage.setItem('votes', JSON.stringify(votes));
+            localStorage.setItem('reasons', JSON.stringify(reasons));
+            localStorage.setItem('alternativeDates', JSON.stringify(alternativeDates));
+        }
+
+        // 투표 섹션 생성
+        function createVotingSections() {
+            const container = document.getElementById('voting-container');
+            for (let i = 0; i < participants; i++) {
+                const section = document.createElement('div');
+                section.classList.add('voting-section');
+                section.innerHTML = `
+                    <h2>${names[i]}의 투표</h2>
+                    <label>2024년 11월 2일:</label>
+                    <button id="yes-2024-11-02-${i + 1}" class="button-yes" onclick="vote(${i + 1}, '2024-11-02', 'yes')">Yes</button>
+                    <button id="no-2024-11-02-${i + 1}" class="button-no" onclick="vote(${i + 1}, '2024-11-02', 'no')">No</button>
+                    <button id="reset-2024-11-02-${i + 1}" class="reset-button" onclick="resetVote(${i + 1}, '2024-11-02')">초기화</button><br>
+                    <div id="reason-2024-11-02-${i + 1}" class="reason-input">
+                        <input type="text" placeholder="이유를 입력하세요" id="reason-input-2024-11-02-${i + 1}">
+                        <label>대체 날짜:</label>
+                        <input type="date" id="alternative-input-2024-11-02-${i + 1}">
+                    </div>
+                    <label>2024년 11월 3일:</label>
+                    <button id="yes-2024-11-03-${i + 1}" class="button-yes" onclick="vote(${i + 1}, '2024-11-03', 'yes')">Yes</button>
+                    <button id="no-2024-11-03-${i + 1}" class="button-no" onclick="vote(${i + 1}, '2024-11-03', 'no')">No</button>
+                    <button id="reset-2024-11-03-${i + 1}" class="reset-button" onclick="resetVote(${i + 1}, '2024-11-03')">초기화</button>
+                    <div id="reason-2024-11-03-${i + 1}" class="reason-input">
+                        <input type="text" placeholder="이유를 입력하세요" id="reason-input-2024-11-03-${i + 1}">
+                        <label>대체 날짜:</label>
+                        <input type="date" id="alternative-input-2024-11-03-${i + 1}">
+                    </div>
+                `;
+                container.appendChild(section);
+                // 이전 투표 결과에 따라 버튼 색상 설정
+                updateButtonColors(i + 1);
+            }
+        }
+
+        // 참여자가 투표를 할 때 호출되는 함수
+        function vote(participant, date, response) {
+            votes[date][participant - 1] = response; // 해당 참여자의 응답 저장
+            saveVotes(); // 투표 후 결과 저장
+
+            const reasonInput = document.getElementById(`reason-2024-11-${date.split('-')[2]}-${participant}`);
+            const reasonField = document.getElementById(`reason-input-2024-11-${date.split('-')[2]}-${participant}`);
+            const alternativeField = document.getElementById(`alternative-input-2024-11-${date.split('-')[2]}-${participant}`);
+            
+            if (response === 'no') {
+                reasonInput.style.display = 'block'; // 이유 입력 필드 표시
+                reasonField.value = reasons[date][participant - 1] || ''; // 이전 이유 불러오기
+                alternativeField.value = alternativeDates[date][participant - 1] || ''; // 이전 대체 날짜 불러오기
+            } else {
+                reasonInput.style.display = 'none'; // 이유 입력 필드 숨김
+                reasons[date][participant - 1] = ''; // 이유 초기화
+                alternativeDates[date][participant - 1] = ''; // 대체 날짜 초기화
+            }
+
+            // 선택한 버튼 색상 변경
+            const yesButton = document.getElementById(`yes-${date}-${participant}`);
+            const noButton = document.getElementById(`no-${date}-${participant}`);
+
+            if (response === 'yes') {
+                yesButton.classList.add('selected-yes');
+                noButton.classList.remove('selected-no');
+            } else {
+                noButton.classList.add('selected-no');
+                yesButton.classList.remove('selected-yes');
+            }
+
+            displayResults(); // 투표할 때마다 결과를 화면에 표시
+        }
+
+        // 투표 초기화 함수
+        function resetVote(participant, date) {
+            votes[date][participant - 1] = ''; // 응답 초기화
+            reasons[date][participant - 1] = ''; // 이유 초기화
+            alternativeDates[date][participant - 1] = ''; // 대체 날짜 초기화
+
+            // 버튼 초기화
+            const yesButton = document.getElementById(`yes-${date}-${participant}`);
+            const noButton = document.getElementById(`no-${date}-${participant}`);
+            const reasonInput = document.getElementById(`reason-2024-11-${date.split('-')[2]}-${participant}`);
+            const reasonField = document.getElementById(`reason-input-2024-11-${date.split('-')[2]}-${participant}`);
+            const alternativeField = document.getElementById(`alternative-input-2024-11-${date.split('-')[2]}-${participant}`);
+
+            yesButton.classList.remove('selected-yes');
+            noButton.classList.remove('selected-no');
+            reasonInput.style.display = 'none'; // 이유 입력 필드 숨김
+            reasonField.value = ''; // 이유 필드 초기화
+            alternativeField.value = ''; // 대체 날짜 초기화
+
+            saveVotes(); // 초기화 후 저장
+            displayResults(); // 결과 다시 표시
+        }
+
+        // 결과 표시 함수
+        function displayResults() {
+            let resultText = "";
+
+            Object.keys(votes).forEach(date => {
+                resultText += `${date} 투표 결과:\n`;
+                let yesCount = 0;
+                let noCount = 0;
+                for (let i = 0; i < participants; i++) {
+                    const response = votes[date][i] || '미응답';
+                    resultText += `${names[i]}: ${response}\n`;
+                    if (response === 'yes') yesCount++;
+                    if (response === 'no') {
+                        resultText += `  이유: ${reasons[date][i] || '없음'}\n`;
+                        resultText += `  대체 날짜: ${alternativeDates[date][i] || '없음'}\n`;
+                    }
+                }
+                resultText += `총 Yes: ${yesCount}, 총 No: ${noCount}\n`;
+            });
+
+            // 결과를 화면에 표시
+            document.getElementById("result").textContent = resultText;
+        }
+
+        // 버튼 색상 업데이트
+        function updateButtonColors(participant) {
+            Object.keys(votes).forEach(date => {
+                const response = votes[date][participant - 1];
+                const yesButton = document.getElementById(`yes-${date}-${participant}`);
+                const noButton = document.getElementById(`no-${date}-${participant}`);
+
+                if (response === 'yes') {
+                    yesButton.classList.add('selected-yes');
+                    noButton.classList.remove('selected-no');
+                } else if (response === 'no') {
+                    noButton.classList.add('selected-no');
+                    yesButton.classList.remove('selected-yes');
+                } else {
+                    yesButton.classList.remove('selected-yes');
+                    noButton.classList.remove('selected-no');
+                }
+            });
+        }
+
+        // 초기 데이터 로드 및 투표 섹션 생성
+        loadVotes();
+        createVotingSections();
+        displayResults(); // 페이지 로드 시 결과 표시
+    </script>
+</body>
+</html>
